@@ -1,0 +1,174 @@
+<script src="https://cdn.jsdelivr.net/gh/netizenorg/netnet-standard-library/build/nn.min.js"></script>
+
+<script>
+/* global nn */
+
+/* Map temperature categories to SVGs */
+const ICONS = {
+  freezing: 'blue.svg',
+  cold: 'lightblue.svg',
+  cool: 'teal.svg',
+  mild: 'green.svg',
+  warm: 'yellow.svg',
+  hot: 'orange.svg',
+  veryHot: 'red.svg',
+  insufferable: 'purple.svg',
+  Default: 'dot.svg'
+}
+
+/* Map temperature categories to background colors */
+const COLORS = {
+  freezing: 'aliceblue',
+  cold: 'lightcyan',
+  cool: 'paleturquoise',
+  mild: 'lightgreen',
+  warm: 'lightyellow',
+  hot: 'lightcoral',
+  veryHot: 'indianred',
+  insufferable: 'mediumpurple',
+  Default: 'linen'
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/* Only temperature logic */
+async function getTemperatureCategory() {
+  try {
+    const gps = await nn.askForGPS()
+    const pointURL = `https://api.weather.gov/points/${gps.lat},${gps.lng}`
+    const nws1 = await fetch(pointURL)
+    const pointData = await nws1.json()
+    const forecastURL = pointData.properties.forecast
+    const nws2 = await fetch(forecastURL)
+    const forecast = await nws2.json()
+    const temp = forecast.properties.periods[0].temperature
+
+    if (temp < 32) return 'freezing'
+    if (temp >= 32 && temp < 45) return 'cold'
+    if (temp >= 45 && temp < 55) return 'cool'
+    if (temp >= 55 && temp < 65) return 'mild'
+    if (temp >= 65 && temp < 75) return 'warm'
+    if (temp >= 75 && temp < 85) return 'hot'
+    if (temp >= 85 && temp < 95) return 'veryHot'
+    if (temp >= 95) return 'insufferable'
+    
+    return 'Default'
+  } catch (e) {
+    console.error('Weather API error:', e)
+    return 'Default'
+  }
+}
+
+async function createDot(icon, x, y) {
+  nn.create('img')
+    .set({
+      src: `${icon}#${Math.random()}`
+    })
+    .css({
+      position: 'absolute',
+      left: `${x - 5}px`,
+      top: `${y - 5}px`,
+      width: '10px',
+      height: '10px',
+      imageRendering: 'auto',
+      userSelect: 'none',
+      pointerEvents: 'none'
+    })
+    .addTo('body')
+}
+
+async function setup() {
+  const tempCategory = await getTemperatureCategory()
+
+  const bgColor = COLORS[tempCategory] || COLORS['Default']
+  const icon = ICONS[tempCategory] || ICONS['Default']
+
+  nn.get('body').css({ backgroundColor: bgColor, margin: 0, overflow: 'hidden' })
+
+  nn.create('div')
+    .set({ innerText: `Temperature: ${tempCategory}` })
+    .css({
+      position: 'fixed',
+      bottom: '10px',
+      width: '100%',
+      textAlign: 'center',
+      fontSize: '20px',
+      color: 'black',
+      fontFamily: 'sans-serif',
+      zIndex: 10
+    })
+    .addTo('body')
+
+  const img = await nn.loadImage(icon)
+
+  let rad = 400
+  let num = 10000
+  let n = 100
+  let d = 1.5
+
+  /* Example: slight param changes based on temperature */
+  if (tempCategory === 'Freezing') {
+    rad = 200
+    num = 3000
+    n = 50
+    d = 2.5
+  } else if (tempCategory === 'cold') {
+    rad = 300
+    num = 5000
+    n = 60
+    d = 2.0
+  } else if (tempCategory === 'cool') {
+    rad = 400
+    num = 7000
+    n = 70
+    d = 1.8
+  } else if (tempCategory === 'mild') {
+    rad = 500
+    num = 8000
+    n = 80
+    d = 1.5
+  } else if (tempCategory === 'warm') {
+    rad = 600
+    num = 10000
+    n = 90
+    d = 1.2
+  } else if (tempCategory === 'hot') {
+    rad = 600
+    num = 12000
+    n = 100
+    d = 1.1
+  } else if (tempCategory === 'veryHot') {
+    rad = 600
+    num = 14000
+    n = 110
+    d = 1.05
+  } else if (tempCategory === 'insufferable') {
+    rad = 600
+    num = 16000
+    n = 120
+    d = 1.0
+  }
+
+  const s = 2 * Math.PI / num
+  const cx = nn.width / 2
+  const cy = nn.height / 2
+
+  for (let i = 0; i < num; i++) {
+    const t = i * s
+    const x = Math.cos(n * t) * Math.cos(t)
+    const y = Math.sin(n * t)
+    const z = Math.cos(n * t) * Math.sin(t)
+
+    const perspective = 1 / (z + d)
+    const x_screen = x * rad * perspective + cx
+    const y_screen = y * rad * perspective + cy
+
+    await sleep(0.1)
+    createDot(icon, x_screen, y_screen)
+  }
+}
+
+nn.on('load', setup)
+</script>
