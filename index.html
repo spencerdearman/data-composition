@@ -13,7 +13,7 @@ const ICONS = {
   hot: 'orange.svg',
   veryHot: 'red.svg',
   insufferable: 'purple.svg',
-  Default: 'dot.svg'
+  default: 'dot.svg'
 }
 
 /* mapping temperature to background color */
@@ -26,7 +26,7 @@ const COLORS = {
   hot: 'lightcoral',
   veryHot: 'coral',
   insufferable: 'mediumpurple',
-  Default: 'linen'
+  default: 'linen'
 }
 
 function sleep(ms) {
@@ -43,22 +43,24 @@ async function getTemperatureCategory() {
     const forecastURL = pointData.properties.forecast
     const nws2 = await fetch(forecastURL)
     const forecast = await nws2.json()
-    const temp = 55
-    // const temp = forecast.properties.periods[0].temperature
-
-    if (temp < 32) return 'freezing'
-    if (temp >= 32 && temp < 45) return 'cold'
-    if (temp >= 45 && temp < 55) return 'cool'
-    if (temp >= 55 && temp < 65) return 'mild'
-    if (temp >= 65 && temp < 75) return 'warm'
-    if (temp >= 75 && temp < 85) return 'hot'
-    if (temp >= 85 && temp < 95) return 'veryHot'
-    if (temp >= 95) return 'insufferable'
     
-    return 'Default'
+    /* it is fun to play around with this to see the other ones */
+    const temp = forecast.properties.periods[0].temperature
+
+    let category = 'default'
+    if (temp < 32) category = 'freezing'
+    else if (temp >= 32 && temp < 45) category = 'cold'
+    else if (temp >= 45 && temp < 55) category = 'cool'
+    else if (temp >= 55 && temp < 65) category = 'mild'
+    else if (temp >= 65 && temp < 75) category = 'warm'
+    else if (temp >= 75 && temp < 85) category = 'hot'
+    else if (temp >= 85 && temp < 95) category = 'veryHot'
+    else if (temp >= 95) category = 'insufferable'
+
+    return { category, temp }
   } catch (e) {
     console.error('Weather API error:', e)
-    return 'Default'
+    return { category: 'default', temp: null }
   }
 }
 
@@ -81,24 +83,31 @@ async function createDot(icon, x, y) {
 }
 
 async function setup() {
-  const tempCategory = await getTemperatureCategory()
+  const { category: tempCategory, temp } = await getTemperatureCategory()
 
   const bgColor = COLORS[tempCategory] || COLORS['Default']
   const icon = ICONS[tempCategory] || ICONS['Default']
 
+  /* the background color */
   nn.get('body').css({ backgroundColor: bgColor, margin: 0, overflow: 'hidden' })
 
+  /* the actual temperature */
   nn.create('div')
-    .set({ innerText: `Temperature: ${tempCategory}` })
-    .css({
-      position: 'fixed',
-      bottom: '10px',
-      width: '100%',
-      textAlign: 'center',
-      fontSize: '20px',
+    .content(`Temperature: ${temp}°F`)
+    /* needed chat to help me with my css: https://chatgpt.com/share/681054f9-be5c-800d-b57f-a59c2d58d943 */
+    .css({ 
       color: 'black',
-      fontFamily: 'sans-serif',
-      zIndex: 10
+      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+      padding: '10px 20px',
+      borderRadius: '20px',
+      boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+      position: 'fixed',
+      textAlign: 'center',
+      fontSize: '24px',
+      bottom: '40px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 100
     })
     .addTo('body')
 
@@ -170,6 +179,7 @@ async function setup() {
     // await sleep(0.1)
     createDot(icon, x_screen, y_screen)
   }
+
 }
 
 nn.on('load', setup)
